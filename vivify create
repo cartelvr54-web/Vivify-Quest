@@ -1,0 +1,59 @@
+name: Build Vivify QMOD
+
+on:
+  push:
+    branches: [ main, bugfix/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:22.04
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        apt-get update
+        apt-get install -y \
+          git wget unzip openjdk-11-jdk \
+          cmake ninja-build ccache
+
+    - name: Setup NDK
+      run: |
+        mkdir -p /opt/android-ndk
+        cd /opt/android-ndk
+        wget https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+        unzip -q android-ndk-r27c-linux.zip
+        export ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c
+        echo "ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c" >> $GITHUB_ENV
+
+    - name: Install QPM
+      run: |
+        mkdir -p /opt/qpm
+        cd /opt/qpm
+        wget https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux
+        chmod +x qpm-linux
+        ln -s /opt/qpm/qpm-linux /usr/local/bin/qpm
+
+    - name: QPM Restore
+      run: qpm restore
+
+    - name: Build Project
+      run: |
+        export ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c
+        qpm s build
+
+    - name: Create QMOD
+      run: qpm s qmod
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Vivify-QMOD
+        path: Vivify.qmod
