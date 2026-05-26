@@ -1,4 +1,4 @@
-#pragma once
+#pragma once 
 
 #include "UnityEngine/RenderTexture.hpp"
 #include "UnityEngine/Texture.hpp"
