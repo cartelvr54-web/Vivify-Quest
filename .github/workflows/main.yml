@@ -53,7 +53,7 @@ jobs:
       run: qpm s qmod
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Vivify-QMOD
         path: Vivify.qmod
