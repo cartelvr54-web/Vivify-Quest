@@ -33,7 +33,7 @@ jobs:
       run: |
         mkdir -p /opt/qpm
         cd /opt/qpm
-        wget https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux
+        wget https://github.com/QuestPackageManager/QPM.CLI/releases/tag/v1.5.10
         chmod +x qpm-linux
         sudo ln -s /opt/qpm/qpm-linux /usr/local/bin/qpm
 
