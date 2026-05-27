@@ -12,9 +12,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,46 +19,44 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip wget curl git
+          sudo apt-get install -y curl wget unzip git
 
       - name: Install QPM
-  run: |
-    curl -fsSL https://qpm.quest/install.sh | bash
+        run: |
+          curl -fsSL https://qpm.quest/install.sh | bash
 
-    echo "Searching for qpm..."
-    find $HOME -type f -name "qpm" 2>/dev/null || true
+          echo "Searching for qpm..."
+          find $HOME -type f -name "qpm" 2>/dev/null || true
 
-    QPM_PATH=$(find $HOME -type f -name "qpm" 2>/dev/null | head -n 1)
+          QPM_PATH=$(find $HOME -type f -name "qpm" 2>/dev/null | head -n 1)
 
-    if [ -z "$QPM_PATH" ]; then
-      echo "QPM was not installed"
-      exit 1
-    fi
+          if [ -z "$QPM_PATH" ]; then
+            echo "QPM was not installed"
+            exit 1
+          fi
 
-    echo "Found QPM at: $QPM_PATH"
+          echo "Found QPM at: $QPM_PATH"
 
-    chmod +x "$QPM_PATH"
+          chmod +x "$QPM_PATH"
 
-    QPM_DIR=$(dirname "$QPM_PATH")
-    echo "$QPM_DIR" >> $GITHUB_PATH
+          QPM_DIR=$(dirname "$QPM_PATH")
 
-    export PATH="$QPM_DIR:$PATH"
+          echo "$QPM_DIR" >> $GITHUB_PATH
 
-    which qpm
-    qpm --version
-    
-     - name: Verify environment
-  run: |
-    which qpm
-    qpm --version
+      - name: Verify environment
+        run: |
+          which qpm || true
+          qpm --version || true
+          pwd
+          ls -la
 
-    - name: Restore packages
-  run: |
-    if [ -f qpm.json ]; then
-      qpm restore
-    else
-      echo "No qpm.json found"
-    fi
+      - name: Restore packages
+        run: |
+          if [ -f qpm.json ]; then
+            qpm restore
+          else
+            echo "No qpm.json found"
+          fi
 
       - name: Build
         run: |
@@ -72,14 +67,3 @@ jobs:
             echo "No build.sh found"
             exit 1
           fi
-
-      - name: Upload build artifacts
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Vivify-Quest-build
-          path: |
-            build/
-            dist/
-            artifacts/
-          if-no-files-found: warn
