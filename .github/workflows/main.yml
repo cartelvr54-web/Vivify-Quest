@@ -1,3 +1,14 @@
+name: Build Vivify QMOD
+
+on:
+  push:
+    branches: [ main, bugfix/** ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
 jobs:
   build:
     runs-on: ubuntu-latest
