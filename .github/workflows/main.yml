@@ -35,20 +35,17 @@ jobs:
           restore-keys: |
             qpm-${{ runner.os }}-
 
-      - name: Install QPM
-        run: |
-          mkdir -p /opt/qpm
-          cd /opt/qpm
+     - name: Install QPM
+  run: |
+    curl -fsSL https://qpm.quest/install.sh | bash
 
-          wget -O qpm-linux \
-            https://github.com/QuestPackageManager/QPM.CLI/releases/download/v1.5.10/qpm-linux
+    # make sure the binary path is available
+    echo "$HOME/.local/bin" >> $GITHUB_PATH
+    export PATH="$HOME/.local/bin:$PATH"
 
-          chmod +x qpm-linux
-          sudo ln -sf /opt/qpm/qpm-linux /usr/local/bin/qpm
-
-          echo "Installed:"
-          qpm --version
-
+    which qpm
+    qpm --version
+    
       - name: Verify environment
         run: |
           which qpm
