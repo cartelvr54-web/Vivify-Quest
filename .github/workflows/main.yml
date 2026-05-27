@@ -35,7 +35,7 @@ jobs:
           restore-keys: |
             qpm-${{ runner.os }}-
 
-     - name: Install QPM
+      - name: Install QPM
   run: |
     curl -fsSL https://qpm.quest/install.sh | bash
 
@@ -53,13 +53,15 @@ jobs:
           pwd
           ls -la
 
-      - name: Restore packages
-        run: |
-          if [ -f qpm.json ]; then
-            qpm restore
-          else
-            echo "No qpm.json found, skipping"
-          fi
+     - name: Restore packages
+  run: |
+    export PATH="$HOME/.local/bin:$PATH"
+
+    if [ -f qpm.json ]; then
+      qpm restore
+    else
+      echo "No qpm.json found"
+    fi
 
       - name: Build
         run: |
