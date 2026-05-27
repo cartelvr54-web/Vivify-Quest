@@ -1,4 +1,7 @@
-name: Build Vivify Quest
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  
+  name: Build Vivify Quest
 
 on:
   push:
@@ -21,22 +24,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y curl wget unzip git
 
-      - name: Install QPM
+            - name: Install QPM
         run: |
           mkdir -p $HOME/qpm
           cd $HOME/qpm
 
-          wget https://github.com/QuestPackageManager/QPM.CLI/archive/refs/tags/v1.5.10.zip || exit 1
+          wget https://github.com/QuestPackageManager/QPM.CLI/archive/refs/tags/v1.5.10.zip
+          unzip v1.5.10.zip
 
-          chmod +x qpm-linux
-          mv qpm-linux qpm
+          echo "Searching for qpm files..."
+          find . | grep qpm || true
+
+          QPM_PATH=$(find . -type f \( -name "qpm" -o -name "qpm-linux" \) | head -n 1)
+
+          if [ -z "$QPM_PATH" ]; then
+            echo "No qpm executable found"
+            exit 1
+          fi
+
+          chmod +x "$QPM_PATH"
+
+          cp "$QPM_PATH" "$HOME/qpm/qpm"
 
           echo "$HOME/qpm" >> $GITHUB_PATH
-
-          export PATH="$HOME/qpm:$PATH"
-
-          which qpm || true
-          qpm --version || true
 
       - name: Verify environment
         run: |
