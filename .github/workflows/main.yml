@@ -17,4 +17,61 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses:
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl wget unzip git
+
+      - name: Install QPM
+        run: |
+          mkdir -p "$HOME/qpm"
+          cd "$HOME/qpm"
+
+          wget -O v1.5.10.zip https://github.com/QuestPackageManager/QPM.CLI/archive/refs/tags/v1.5.10.zip
+          unzip -o v1.5.10.zip
+
+          echo "Searching for qpm files..."
+          find . | grep qpm || true
+
+          QPM_PATH=$(find . -type f \( -name "qpm" -o -name "qpm-linux" \) | head -n 1)
+
+          if [ -z "$QPM_PATH" ]; then
+            echo "No qpm executable found"
+            exit 1
+          fi
+
+          chmod +x "$QPM_PATH"
+          cp "$QPM_PATH" "$HOME/qpm/qpm"
+
+          echo "$HOME/qpm" >> "$GITHUB_PATH"
+
+      - name: Verify environment
+        run: |
+          export PATH="$HOME/qpm:$PATH"
+
+          which qpm || true
+          qpm --version || true
+          pwd
+          ls -la
+
+      - name: Restore packages
+        run: |
+          export PATH="$HOME/qpm:$PATH"
+
+          if [ -f qpm.json ]; then
+            qpm restore
+          else
+            echo "No qpm.json found"
+          fi
+
+      - name: Build
+        run: |
+          if [ -f build.sh ]; then
+            chmod +x build.sh
+            ./build.sh
+          else
+            echo "No build.sh found"
+            exit 1
+          fi
