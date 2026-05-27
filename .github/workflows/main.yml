@@ -22,33 +22,26 @@ jobs:
           sudo apt-get install -y curl wget unzip git
 
       - name: Install QPM
-        run: |
-          curl -fsSL https://qpm.quest/install.sh | bash
+  run: |
+    mkdir -p $HOME/qpm
+    cd $HOME/qpm
 
-          echo "Searching for qpm..."
-          find $HOME -type f -name "qpm" 2>/dev/null || true
+    wget https://github.com/QuestPackageManager/QPM.CLI/releases/latest/download/qpm-ubuntu
 
-          QPM_PATH=$(find $HOME -type f -name "qpm" 2>/dev/null | head -n 1)
+    chmod +x qpm-ubuntu
+    mv qpm-ubuntu qpm
 
-          if [ -z "$QPM_PATH" ]; then
-            echo "QPM was not installed"
-            exit 1
-          fi
+    echo "$HOME/qpm" >> $GITHUB_PATH
 
-          echo "Found QPM at: $QPM_PATH"
+    export PATH="$HOME/qpm:$PATH"
 
-          chmod +x "$QPM_PATH"
-
-          QPM_DIR=$(dirname "$QPM_PATH")
-
-          echo "$QPM_DIR" >> $GITHUB_PATH
-
+    which qpm
+    qpm --version
+    
       - name: Verify environment
-        run: |
-          which qpm || true
-          qpm --version || true
-          pwd
-          ls -la
+  run: |
+    which qpm
+    qpm --version
 
       - name: Restore packages
         run: |
