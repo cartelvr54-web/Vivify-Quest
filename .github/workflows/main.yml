@@ -24,13 +24,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y curl wget unzip git
 
-            - name: Install QPM
+                  - name: Install QPM
         run: |
           mkdir -p $HOME/qpm
           cd $HOME/qpm
 
           wget https://github.com/QuestPackageManager/QPM.CLI/archive/refs/tags/v1.5.10.zip
-          unzip v1.5.10.zip
+          unzip -o v1.5.10.zip
 
           echo "Searching for qpm files..."
           find . | grep qpm || true
@@ -47,7 +47,6 @@ jobs:
           cp "$QPM_PATH" "$HOME/qpm/qpm"
 
           echo "$HOME/qpm" >> $GITHUB_PATH
-
       - name: Verify environment
         run: |
           export PATH="$HOME/qpm:$PATH"
