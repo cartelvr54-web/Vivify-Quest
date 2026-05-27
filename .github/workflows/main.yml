@@ -35,7 +35,7 @@ jobs:
         cd /opt/qpm
         wget https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux
         chmod +x qpm-linux
-        ln -s /opt/qpm/qpm-linux /usr/local/bin/qpm
+        sudo ln -s /opt/qpm/qpm-linux /usr/local/bin/qpm
 
     - name: QPM Restore
       run: qpm restore
