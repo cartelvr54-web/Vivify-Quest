@@ -1,55 +1,86 @@
-name: Build Vivify QMOD
+name: Build Vivify Quest
 
 on:
   push:
-    branches: [ main, bugfix/** ]
+    branches:
+      - main
+      - bugfix/**
+      - feature/**
   pull_request:
-    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git wget unzip cmake ninja-build ccache openjdk-11-jdk
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y unzip wget curl git
 
-    - name: Setup NDK
-      run: |
-        mkdir -p /opt/android-ndk
-        cd /opt/android-ndk
-        wget https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
-        unzip -q android-ndk-r27c-linux.zip
-        export ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c
-        echo "ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c" >> $GITHUB_ENV
+      # Cache QPM packages to speed up builds
+      - name: Cache QPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/qpm
+            ~/.local/share/QPM
+          key: qpm-${{ runner.os }}-${{ hashFiles('**/qpm.json','**/qpm.shared.json') }}
+          restore-keys: |
+            qpm-${{ runner.os }}-
 
-    - name: Install QPM
-      run: |
-        mkdir -p /opt/qpm
-        cd /opt/qpm
-        wget https://github.com/QuestPackageManager/QPM.CLI/archive/refs/tags/v1.5.10.zip
-        chmod +x qpm-linux
-        sudo ln -s /opt/qpm/qpm-linux /usr/local/bin/qpm
+      - name: Install QPM
+        run: |
+          mkdir -p /opt/qpm
+          cd /opt/qpm
 
-    - name: QPM Restore
-      run: qpm restore
+          wget -O qpm-linux \
+            https://github.com/QuestPackageManager/QPM.CLI/releases/download/v1.5.10/qpm-linux
 
-    - name: Build Project
-      run: |
-        export ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c
-        qpm s build
+          chmod +x qpm-linux
+          sudo ln -sf /opt/qpm/qpm-linux /usr/local/bin/qpm
 
-    - name: Create QMOD
-      run: qpm s qmod
+          echo "Installed:"
+          qpm --version
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: Vivify-QMOD
-        path: Vivify.qmod
+      - name: Verify environment
+        run: |
+          which qpm
+          qpm --version
+          pwd
+          ls -la
+
+      - name: Restore packages
+        run: |
+          if [ -f qpm.json ]; then
+            qpm restore
+          else
+            echo "No qpm.json found, skipping"
+          fi
+
+      - name: Build
+        run: |
+          if [ -f build.sh ]; then
+            chmod +x build.sh
+            ./build.sh
+          else
+            echo "No build.sh found"
+            exit 1
+          fi
+
+      - name: Upload build artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vivify-Quest-build
+          path: |
+            build/
+            dist/
+            artifacts/
+          if-no-files-found: warn
