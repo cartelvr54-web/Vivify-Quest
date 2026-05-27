@@ -1,85 +1,58 @@
-name: Build Vivify Quest
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-on:
-  push:
-    branches:
-      - main
-      - bugfix/**
-      - feature/**
-  pull_request:
+  - name: Install dependencies
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y unzip wget curl git
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+  - name: Install QPM
+    run: |
+      curl -fsSL https://qpm.quest/install.sh | bash
 
-    permissions:
-      contents: read
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
+      export PATH="$HOME/.local/bin:$PATH"
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      which qpm
+      qpm --version
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y unzip wget curl git
+  - name: Verify environment
+    run: |
+      export PATH="$HOME/.local/bin:$PATH"
 
-      # Cache QPM packages to speed up builds
-      - name: Cache QPM
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/qpm
-            ~/.local/share/QPM
-          key: qpm-${{ runner.os }}-${{ hashFiles('**/qpm.json','**/qpm.shared.json') }}
-          restore-keys: |
-            qpm-${{ runner.os }}-
+      which qpm
+      qpm --version
+      pwd
+      ls -la
 
-      - name: Install QPM
-  run: |
-    curl -fsSL https://qpm.quest/install.sh | bash
+  - name: Restore packages
+    run: |
+      export PATH="$HOME/.local/bin:$PATH"
 
-    # make sure the binary path is available
-    echo "$HOME/.local/bin" >> $GITHUB_PATH
-    export PATH="$HOME/.local/bin:$PATH"
+      if [ -f qpm.json ]; then
+        qpm restore
+      else
+        echo "No qpm.json found"
+      fi
 
-    which qpm
-    qpm --version
-    
-      - name: Verify environment
-        run: |
-          which qpm
-          qpm --version
-          pwd
-          ls -la
+  - name: Build
+    run: |
+      if [ -f build.sh ]; then
+        chmod +x build.sh
+        ./build.sh
+      else
+        echo "No build.sh found"
+        exit 1
+      fi
 
-     - name: Restore packages
-  run: |
-    export PATH="$HOME/.local/bin:$PATH"
-
-    if [ -f qpm.json ]; then
-      qpm restore
-    else
-      echo "No qpm.json found"
-    fi
-
-      - name: Build
-        run: |
-          if [ -f build.sh ]; then
-            chmod +x build.sh
-            ./build.sh
-          else
-            echo "No build.sh found"
-            exit 1
-          fi
-
-      - name: Upload build artifacts
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Vivify-Quest-build
-          path: |
-            build/
-            dist/
-            artifacts/
-          if-no-files-found: warn
+  - name: Upload build artifacts
+    uses: actions/upload-artifact@v4
+    if: success()
+    with:
+      name: Vivify-Quest-build
+      path: |
+        build/
+        dist/
+        artifacts/
+      if-no-files-found: warn
