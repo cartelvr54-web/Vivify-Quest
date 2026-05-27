@@ -25,33 +25,43 @@ jobs:
           sudo apt-get install -y unzip wget curl git
 
       - name: Install QPM
-        run: |
-          curl -fsSL https://qpm.quest/install.sh | bash
+  run: |
+    curl -fsSL https://qpm.quest/install.sh | bash
 
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-          export PATH="$HOME/.local/bin:$PATH"
+    echo "Searching for qpm..."
+    find $HOME -type f -name "qpm" 2>/dev/null || true
 
-          which qpm || true
-          qpm --version || true
+    QPM_PATH=$(find $HOME -type f -name "qpm" 2>/dev/null | head -n 1)
 
-      - name: Verify environment
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
+    if [ -z "$QPM_PATH" ]; then
+      echo "QPM was not installed"
+      exit 1
+    fi
 
-          which qpm || true
-          qpm --version || true
-          pwd
-          ls -la
+    echo "Found QPM at: $QPM_PATH"
 
-      - name: Restore packages
-        run: |
-          export PATH="$HOME/.local/bin:$PATH"
+    chmod +x "$QPM_PATH"
 
-          if [ -f qpm.json ]; then
-            qpm restore
-          else
-            echo "No qpm.json found"
-          fi
+    QPM_DIR=$(dirname "$QPM_PATH")
+    echo "$QPM_DIR" >> $GITHUB_PATH
+
+    export PATH="$QPM_DIR:$PATH"
+
+    which qpm
+    qpm --version
+    
+     - name: Verify environment
+  run: |
+    which qpm
+    qpm --version
+
+    - name: Restore packages
+  run: |
+    if [ -f qpm.json ]; then
+      qpm restore
+    else
+      echo "No qpm.json found"
+    fi
 
       - name: Build
         run: |
