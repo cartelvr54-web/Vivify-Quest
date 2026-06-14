@@ -37,9 +37,10 @@ jobs:
         run: |
           mkdir -p /opt/qpm
           cd /opt/qpm
-          wget https://github.com/QuestPackageManager/QPM.CLI/releases/download/v1.5.10/qpm-linux
-          chmod +x qpm-linux
-          sudo mv qpm-linux /usr/local/bin/qpm
+          wget https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip
+          unzip -q qpm-linux-x64-musl.zip
+          chmod +x qpm
+          sudo mv qpm /usr/local/bin/qpm
           which qpm
           qpm --version
 
