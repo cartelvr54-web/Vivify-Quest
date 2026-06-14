@@ -17,19 +17,45 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl wget unzip git
+          sudo apt-get install -y curl wget unzip git cmake ninja-build ccache openjdk-11-jdk
+
+      - name: Setup NDK
+        run: |
+          mkdir -p /opt/android-ndk
+          cd /opt/android-ndk
+          wget https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+          unzip -q android-ndk-r27c-linux.zip
+          export ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c
+          echo "ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c" >> $GITHUB_ENV
 
       - name: Install QPM
-      run: |
-        mkdir -p /opt/qpm
-        cd /opt/qpm
-        wget https://github.com/QuestPackageManager/QPM.CLI/releases/download/v1.5.10/qpm-linux
-        chmod +x qpm-linux
-        sudo mv qpm-linux /usr/local/bin/qpm
-        which qpm
-        qpm --version
+        run: |
+          mkdir -p /opt/qpm
+          cd /opt/qpm
+          wget https://github.com/QuestPackageManager/QPM.CLI/releases/download/v1.5.10/qpm-linux
+          chmod +x qpm-linux
+          sudo mv qpm-linux /usr/local/bin/qpm
+          which qpm
+          qpm --version
+
+      - name: QPM Restore
+        run: qpm restore
+
+      - name: Build Project
+        run: |
+          export ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c
+          qpm s build
+
+      - name: Create QMOD
+        run: qpm s qmod
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vivify-QMOD
+          path: Vivify.qmod
