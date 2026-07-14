@@ -33,17 +33,56 @@ jobs:
         run: |
           mkdir -p /opt/android-ndk
           cd /opt/android-ndk
-          wget -q https://dl.google.com/android/repository/android-ndk-r27c-linux.zip
+          echo "Downloading NDK..."
+          curl -fSL -o android-ndk-r27c-linux.zip "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip"
           unzip -q android-ndk-r27c-linux.zip
+          rm android-ndk-r27c-linux.zip
           echo "ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c" >> $GITHUB_ENV
 
-      - name: Install QPM
+      - name: Install QPM (robust with fallback)
         run: |
+          set -euo pipefail
           mkdir -p /opt/qpm
           cd /opt/qpm
-          wget -q https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux -O qpm
-          chmod +x qpm
-          sudo mv qpm /usr/local/bin/qpm
+          # Try primary QPM release binary (v0.16.5)
+          QPM_URL_PRIMARY="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
+          QPM_URL_FALLBACK="https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip"
+          echo "Trying to download QPM from primary URL: $QPM_URL_PRIMARY"
+          n=0
+          SUCCESS=0
+          until [ $n -ge 3 ]; do
+            if curl -fSL -o qpm "$QPM_URL_PRIMARY"; then
+              chmod +x qpm
+              sudo mv qpm /usr/local/bin/qpm
+              SUCCESS=1
+              break
+            fi
+            n=$((n+1))
+            echo "Primary download attempt $n failed, retrying..."
+            sleep 1
+          done
+          if [ $SUCCESS -eq 0 ]; then
+            echo "Primary QPM binary not available; falling back to zip from QPM.CLI"
+            curl -fSL -o qpm-fallback.zip "$QPM_URL_FALLBACK"
+            unzip -q qpm-fallback.zip
+            # the zip contains qpm executable named 'qpm' in many releases
+            if [ -f qpm ]; then
+              chmod +x qpm
+              sudo mv qpm /usr/local/bin/qpm
+            else
+              # try to find qpm in extracted files
+              found=$(find . -type f -name qpm -print -quit || true)
+              if [ -n "$found" ]; then
+                chmod +x "$found"
+                sudo mv "$found" /usr/local/bin/qpm
+              else
+                echo "Failed to find qpm in fallback archive"
+                ls -la
+                exit 2
+              fi
+            fi
+          fi
+          echo "qpm location: $(which qpm || true)"
           qpm --version || true
 
       - name: QPM Restore
