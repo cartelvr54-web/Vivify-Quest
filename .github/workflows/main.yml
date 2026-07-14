@@ -20,18 +20,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y curl wget unzip git cmake ninja-build ccache openjdk-11-jdk
 
-      - name: Setup NDK
+      - name: Setup Android NDK
         run: |
-          set -euo pipefail
           mkdir -p /opt/android-ndk
           cd /opt/android-ndk
           echo "Downloading NDK..."
@@ -40,17 +40,19 @@ jobs:
           rm -f android-ndk-r27c-linux.zip
           echo "ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c" >> $GITHUB_ENV
 
-      - name: Install QPM (robust with fallback)
+      - name: Install QPM (with fallback)
         run: |
-          set -euo pipefail
           mkdir -p /opt/qpm
           cd /opt/qpm
-          PRIMARY_URL="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
+          PRIMARY="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
           FALLBACK_ZIP="https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip"
-          if curl -fSL -o qpm.bin "$PRIMARY_URL"; then
+
+          echo "Trying primary QPM binary..."
+          if curl -fSL -o qpm.bin "$PRIMARY"; then
             chmod +x qpm.bin
             sudo mv qpm.bin /usr/local/bin/qpm
           else
+            echo "Primary binary not available; trying fallback zip..."
             curl -fSL -o qpm.zip "$FALLBACK_ZIP"
             unzip -q qpm.zip
             rm -f qpm.zip
@@ -66,9 +68,48 @@ jobs:
           fi
           qpm --version || true
 
-      - name: Debug: qpm state
+      - name: Debug QPM state
         run: |
           echo "qpm version:"
           qpm --version || true
-          echo "List root files](#)
-
+          echo "workspace files:"
+          ls -la
+
+      - name: QPM restore (temporary unlocked resolve)
+        env:
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
+        run: qpm restore
+
+      - name: Build project
+        env:
+          ANDROID_NDK_HOME: /opt/android-ndk/android-ndk-r27c
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
+        run: qpm s build
+
+      - name: Create QMOD (explicit)
+        env:
+          ANDROID_NDK_HOME: /opt/android-ndk/android-ndk-r27c
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
+        run: |
+          qpm s qmod || true
+          # verify where the qmod is
+          if [ -f Vivify.qmod ]; then
+            echo "Vivify.qmod found in repo root"
+            ls -lah Vivify.qmod
+          else
+            found=$(find . -type f -name "Vivify.qmod" -print -quit || true)
+            if [ -n "$found" ]; then
+              echo "Found Vivify.qmod at: $found"
+              ls -lah "$found"
+            else
+              echo "Vivify.qmod not found"
+              find . -maxdepth 4 -type f -name "*.qmod" -print || true
+              exit 1
+            fi
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vivify-QMOD
+          path: '**/Vivify.qmod'
