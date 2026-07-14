@@ -31,12 +31,13 @@ jobs:
 
       - name: Setup NDK
         run: |
+          set -euo pipefail
           mkdir -p /opt/android-ndk
           cd /opt/android-ndk
           echo "Downloading NDK..."
           curl -fSL -o android-ndk-r27c-linux.zip "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip"
           unzip -q android-ndk-r27c-linux.zip
-          rm android-ndk-r27c-linux.zip
+          rm -f android-ndk-r27c-linux.zip
           echo "ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c" >> $GITHUB_ENV
 
       - name: Install QPM (robust with fallback)
@@ -44,58 +45,59 @@ jobs:
           set -euo pipefail
           mkdir -p /opt/qpm
           cd /opt/qpm
-          # Try primary QPM release binary (v0.16.5)
-          QPM_URL_PRIMARY="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
-          QPM_URL_FALLBACK="https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip"
-          echo "Trying to download QPM from primary URL: $QPM_URL_PRIMARY"
-          n=0
-          SUCCESS=0
-          until [ $n -ge 3 ]; do
-            if curl -fSL -o qpm "$QPM_URL_PRIMARY"; then
-              chmod +x qpm
-              sudo mv qpm /usr/local/bin/qpm
-              SUCCESS=1
-              break
-            fi
-            n=$((n+1))
-            echo "Primary download attempt $n failed, retrying..."
-            sleep 1
-          done
-          if [ $SUCCESS -eq 0 ]; then
-            echo "Primary QPM binary not available; falling back to zip from QPM.CLI"
-            curl -fSL -o qpm-fallback.zip "$QPM_URL_FALLBACK"
-            unzip -q qpm-fallback.zip
-            # the zip contains qpm executable named 'qpm' in many releases
-            if [ -f qpm ]; then
-              chmod +x qpm
-              sudo mv qpm /usr/local/bin/qpm
+          # Try the official binary first
+          QPM_BIN_URL="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
+          QPM_ZIP_URL="https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip"
+
+          echo "Attempting primary QPM binary: $QPM_BIN_URL"
+          if curl -fSL -o qpm.bin "$QPM_BIN_URL"; then
+            chmod +x qpm.bin
+            sudo mv qpm.bin /usr/local/bin/qpm
+          else
+            echo "Primary binary not available; trying zip fallback: $QPM_ZIP_URL"
+            curl -fSL -o qpm.zip "$QPM_ZIP_URL"
+            unzip -q qpm.zip
+            rm -f qpm.zip
+            found=$(find . -type f -name qpm -print -quit || true)
+            if [ -n "$found" ]; then
+              chmod +x "$found"
+              sudo mv "$found" /usr/local/bin/qpm
             else
-              # try to find qpm in extracted files
-              found=$(find . -type f -name qpm -print -quit || true)
-              if [ -n "$found" ]; then
-                chmod +x "$found"
-                sudo mv "$found" /usr/local/bin/qpm
-              else
-                echo "Failed to find qpm in fallback archive"
-                ls -la
-                exit 2
-              fi
+              echo "Failed to locate qpm in fallback archive"
+              ls -la
+              exit 2
             fi
           fi
-          echo "qpm location: $(which qpm || true)"
+          echo "Installed qpm at $(which qpm || true)"
           qpm --version || true
 
-      - name: QPM Restore
-        run: qpm restore
+      - name: Debug: qpm state & web-utils info
+        run: |
+          echo "qpm version:"
+          qpm --version || true
+          echo
+          echo "qpm.shared.json present?"
+          ls -la qpm.shared.json || echo "no qpm.shared.json in repo root"
+          echo
+          echo "Attempting to show web-utils info (may require index):"
+          qpm info web-utils || qpm search web-utils || true
+
+      - name: QPM Restore (temporary: allow unlocked resolve in CI)
+        env:
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
+        run: |
+          qpm restore
 
       - name: Build Project
         env:
           ANDROID_NDK_HOME: /opt/android-ndk/android-ndk-r27c
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
         run: qpm s build
 
       - name: Create QMOD
         env:
           ANDROID_NDK_HOME: /opt/android-ndk/android-ndk-r27c
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
         run: qpm s qmod
 
       - name: Upload artifact
