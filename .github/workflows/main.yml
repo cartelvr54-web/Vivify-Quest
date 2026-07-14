@@ -28,7 +28,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl wget unzip git cmake ninja-build ccache openjdk-11-jdk
+          sudo apt-get install -y curl wget unzip git cmake ninja-build ccache openjdk-11-jdk apt-transport-https software-properties-common
 
       - name: Setup Android NDK
         run: |
@@ -48,7 +48,6 @@ jobs:
           cd /opt/qpm
           PRIMARY="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
           FALLBACK_ZIP="https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip"
-
           echo "Trying primary QPM binary..."
           if curl -fSL -o qpm.bin "$PRIMARY"; then
             chmod +x qpm.bin
@@ -69,6 +68,23 @@ jobs:
             fi
           fi
           qpm --version || true
+
+      - name: Install PowerShell (pwsh) so build.ps1 can run
+        run: |
+          set -euo pipefail
+          # Use Microsoft package feed for ubuntu-latest (Ubuntu 22.04/20.04)
+          wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb || true
+          if [ -f packages-microsoft-prod.deb ]; then
+            sudo dpkg -i packages-microsoft-prod.deb
+            rm -f packages-microsoft-prod.deb
+            sudo apt-get update
+            sudo apt-get install -y powershell
+          else
+            # Fallback: try snap (may be slower)
+            sudo snap install powershell --classic || true
+          fi
+          echo "pwsh version:"
+          pwsh --version || true
 
       - name: QPM Restore
         run: qpm restore
