@@ -1,0 +1,90 @@
+name: Debug Vivify QMOD
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/debug-qmod.yml'
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl unzip git cmake ninja-build ccache openjdk-11-jdk
+
+      - name: Setup Android NDK
+        run: |
+          mkdir -p /opt/android-ndk
+          cd /opt/android-ndk
+          curl -fSL -o android-ndk-r27c-linux.zip "https://dl.google.com/android/repository/android-ndk-r27c-linux.zip"
+          unzip -q android-ndk-r27c-linux.zip
+          rm -f android-ndk-r27c-linux.zip
+          echo "ANDROID_NDK_HOME=/opt/android-ndk/android-ndk-r27c" >> $GITHUB_ENV
+
+      - name: Install QPM (fallback)
+        run: |
+          mkdir -p /opt/qpm && cd /opt/qpm
+          PRIMARY="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
+          FALLBACK_ZIP="https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip"
+          if curl -fSL -o qpm.bin "$PRIMARY"; then
+            chmod +x qpm.bin; sudo mv qpm.bin /usr/local/bin/qpm
+          else
+            curl -fSL -o qpm.zip "$FALLBACK_ZIP"; unzip -q qpm.zip; rm -f qpm.zip
+            found=$(find . -type f -name qpm -print -quit || true)
+            if [ -n "$found" ]; then chmod +x "$found"; sudo mv "$found" /usr/local/bin/qpm; else echo "qpm not found"; exit 2; fi
+          fi
+          qpm --version || true
+
+      - name: Show qpm state & workspace files
+        run: |
+          qpm --version || true
+          echo "qpm.shared.json present?"; ls -la qpm.shared.json || echo "none"
+          echo "Top-level repo files:"; ls -la
+
+      - name: QPM restore (allow unlocked for debug)
+        env:
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
+        run: qpm restore || true
+
+      - name: Build (debug)
+        env:
+          ANDROID_NDK_HOME: /opt/android-ndk/android-ndk-r27c
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
+        run: qpm s build || true
+
+      - name: Create qmod (capture logs)
+        env:
+          ANDROID_NDK_HOME: /opt/android-ndk/android-ndk-r27c
+          QPM_ALLOW_UNLOCKED_RESOLVE: "true"
+        run: |
+          qpm s qmod > qpm_qmod.log 2>&1 || true
+          echo $? > qpm_qmod_exitcode.txt
+          find . -type f -name "Vivify.qmod" -print > qmod_find.log || true
+          ls -la > workspace_root.log || true
+          ls -la build > build_listing.log || true
+          ls -la extern > extern_listing.log || true
+          tail -n +1 qpm_qmod.log | sed -n '1,300p' > qpm_qmod_tail.log || true
+          found=$(awk 'NF{print; exit}' qmod_find.log || true)
+          if [ -n "$found" ]; then cp "$found" "$GITHUB_WORKSPACE/Vivify.qmod"; fi
+
+      - name: Upload debug artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Vivify-Debug
+          path: |
+            Vivify.qmod
+            qpm_qmod.log
+            qpm_qmod_tail.log
+            qpm_qmod_exitcode.txt
+            qmod_find.log
+            workspace_root.log
+            build_listing.log
+            extern_listing.log
