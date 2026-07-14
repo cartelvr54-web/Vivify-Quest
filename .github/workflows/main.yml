@@ -88,33 +88,52 @@ jobs:
           QPM_ALLOW_UNLOCKED_RESOLVE: "true"
         run: qpm s build
 
-      - name: Create QMOD (explicit)
+      - name: Create QMOD (debug, capture logs)
         env:
           ANDROID_NDK_HOME: /opt/android-ndk/android-ndk-r27c
           QPM_ALLOW_UNLOCKED_RESOLVE: "true"
         run: |
           set -euo pipefail
-          echo "Running qpm workspace qmod script..."
-          qpm s qmod || true
+          echo "=== Running qpm s qmod (capture stdout/stderr) ==="
+          qpm s qmod > qpm_qmod.log 2>&1 || true
+          echo "=== qpm s qmod exit code ==="
+          echo $? > qpm_qmod_exitcode.txt
 
-          # Search for Vivify.qmod anywhere under the workspace and copy to root for upload
-          found=$(find "$GITHUB_WORKSPACE" -type f -name "Vivify.qmod" -print -quit || true)
+          echo "=== Find any Vivify.qmod files ==="
+          find "$GITHUB_WORKSPACE" -type f -name "Vivify.qmod" -print > qmod_find.log || true
+
+          echo "=== Workspace root listing (top level) ==="
+          ls -la "$GITHUB_WORKSPACE" > workspace_root.log || true
+
+          echo "=== Build directory listing (shallow) ==="
+          ls -la build > build_listing.log || true
+
+          echo "=== extern directory listing (shallow) ==="
+          ls -la extern > extern_listing.log || true
+
+          echo "=== Tail of qpm log (if created) ==="
+          tail -n +1 qpm_qmod.log | sed -n '1,200p' > qpm_qmod_tail.log || true
+
+          # if a Vivify.qmod was found, copy first one to workspace root for upload
+          found=$(awk 'NF{print; exit}' qmod_find.log || true)
           if [ -n "$found" ]; then
-            echo "Found Vivify.qmod at: $found"
+            echo "Found qmod at: $found"
             cp "$found" "$GITHUB_WORKSPACE/Vivify.qmod"
             ls -lah "$GITHUB_WORKSPACE/Vivify.qmod"
           else
-            echo "ERROR: Vivify.qmod not found after qpm s qmod."
-            echo "Listing any .qmod files for debugging:"
-            find "$GITHUB_WORKSPACE" -type f -name "*.qmod" -print || true
-            echo "Listing build/ and workspace root for debugging:"
-            ls -la build || true
-            ls -la "$GITHUB_WORKSPACE" || true
-            exit 1
+            echo "No Vivify.qmod found (see qpm_qmod.log and qmod_find.log)"
           fi
 
-      - name: Upload artifact (Vivify.qmod)
+      - name: Upload debug artifacts (qmod + logs)
         uses: actions/upload-artifact@v4
         with:
-          name: Vivify-QMOD
-          path: Vivify.qmod
+          name: Vivify-Debug
+          path: |
+            Vivify.qmod
+            qpm_qmod.log
+            qpm_qmod_exitcode.txt
+            qpm_qmod_tail.log
+            qmod_find.log
+            workspace_root.log
+            build_listing.log
+            extern_listing.log
