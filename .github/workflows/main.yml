@@ -1,3 +1,15 @@
+# 1. Fetch latest and switch to the branch we need to fix
+git fetch origin
+git checkout bugfix/general-issues
+
+# 2. Create a backup branch for the broken workflow (safe)
+git checkout -b backup/debug-workflow-broken
+
+# 3. Switch back to the branch we will fix
+git checkout bugfix/general-issues
+
+# 4. Overwrite the workflow with the previous working content
+cat > .github/workflows/main.yml <<'EOF'
 name: Build Vivify QMOD
 
 on:
@@ -55,3 +67,9 @@ jobs:
       with:
         name: Vivify-QMOD
         path: Vivify.qmod
+EOF
+
+# 5. Commit and push the restored workflow
+git add .github/workflows/main.yml
+git commit -m "Restore working CI workflow: revert debug changes"
+git push origin bugfix/general-issues
