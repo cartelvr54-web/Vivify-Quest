@@ -44,3 +44,31 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /opt/qpm
+          cd /opt/qpm
+          PRIMARY_URL="https://github.com/QuestPackageManager/qpm-cli/releases/download/v0.16.5/qpm-linux"
+          FALLBACK_ZIP="https://github.com/QuestPackageManager/QPM.CLI/releases/download/bleeding/qpm-linux-x64-musl.zip"
+          if curl -fSL -o qpm.bin "$PRIMARY_URL"; then
+            chmod +x qpm.bin
+            sudo mv qpm.bin /usr/local/bin/qpm
+          else
+            curl -fSL -o qpm.zip "$FALLBACK_ZIP"
+            unzip -q qpm.zip
+            rm -f qpm.zip
+            found=$(find . -type f -name qpm -print -quit || true)
+            if [ -n "$found" ]; then
+              chmod +x "$found"
+              sudo mv "$found" /usr/local/bin/qpm
+            else
+              echo "Failed to locate qpm in fallback archive"
+              ls -la
+              exit 2
+            fi
+          fi
+          qpm --version || true
+
+      - name: Debug: qpm state
+        run: |
+          echo "qpm version:"
+          qpm --version || true
+          echo "List root files](#)
+
